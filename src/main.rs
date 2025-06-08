@@ -1,6 +1,9 @@
+mod config;
+
+use anyhow::Result;
+use config::load_config;
 use reqwest;
 use serde::Deserialize;
-use std::io;
 
 #[derive(Debug, Deserialize)]
 struct WeatherData {
@@ -11,27 +14,73 @@ struct WeatherData {
 struct CurrentCondition {
     #[serde(rename = "temp_C")]
     temp_c: String,
-    humidity: String,
-    #[serde(rename = "windspeedKmph")]
-    windspeed_kmph: String,
-    #[serde(rename = "weatherDesc")]
-    weather_desc: Vec<WeatherDesc>,
+    #[serde(rename = "weatherCode")]
+    weather_code: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct WeatherDesc {
-    value: String,
+fn get_wether_icon(code: &str) -> &str {
+    match code {
+        "113" => "☀️",
+        "116" => "⛅️",
+        "119" => "☁️",
+        "122" => "☁️",
+        "143" => "🌫",
+        "176" => "🌦",
+        "179" => "🌧",
+        "182" => "🌧",
+        "185" => "🌧",
+        "200" => "⛈",
+        "227" => "🌨",
+        "230" => "❄️",
+        "248" => "🌫",
+        "260" => "🌫",
+        "263" => "🌦",
+        "266" => "🌦",
+        "281" => "🌧",
+        "284" => "🌧",
+        "293" => "🌦",
+        "296" => "🌦",
+        "299" => "🌧",
+        "302" => "🌧",
+        "305" => "🌧",
+        "308" => "🌧",
+        "311" => "🌧",
+        "314" => "🌧",
+        "317" => "🌧",
+        "320" => "🌨",
+        "323" => "🌨",
+        "326" => "🌨",
+        "329" => "❄️",
+        "332" => "❄️",
+        "335" => "❄️",
+        "338" => "❄️",
+        "350" => "🌧",
+        "353" => "🌦",
+        "356" => "🌧",
+        "359" => "🌧",
+        "362" => "🌧",
+        "365" => "🌧",
+        "368" => "🌨",
+        "371" => "❄️",
+        "374" => "🌧",
+        "377" => "🌧",
+        "386" => "⛈",
+        "389" => "🌩",
+        "392" => "⛈",
+        "395" => "❄️",
+        _ => "�", // или другое значение по умолчанию
+    }
 }
+
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Please enter city for weather");
-    let mut city = String::new();
-    io::stdin()
-        .read_line(&mut city)
-        .expect("Error reading stdin.");
-    let city = city.trim();
+    let config = load_config()?;
+    let city = &config.city;
 
-    let url = format!("https://wttr.in/{}?format=j1", city);
+    let url = format!(
+        "https://wttr.in/{}?format=j1&lang={}",
+        city, config.language
+    );
 
     let response= reqwest::blocking::get(&url)?;
 
@@ -43,15 +92,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 let weather: WeatherData = response.json()?;
 
 if let Some(condition) = weather.current_condition.first() {
-    if let Some(description) = condition.weather_desc.first() {
-        println!("\n--- Weather in {} ---", city);
-        println!("Temperature: {} C", condition.temp_c);
-        println!("Описание: {}", description.value);
-        println!("Влажность: {}%", condition.humidity);
-        println!("Скорость ветра: {} км/ч", condition.windspeed_kmph);
-    }
+    let icon = get_wether_icon(&condition.weather_code);
+    println!("{}°C {}", condition.temp_c, icon);
 } else {
-    println!("Данные о погоде не найдены");
+    println!("Weather data not found.");
 }
 
 Ok(())
